@@ -13,12 +13,14 @@ matches_dataset_final = pd.read_csv('final_kaggle_dataset.csv')
 
 
 #load players data
-players_dataset = pd.read_csv('players_data.csv')
+players_dataset = pd.read_csv('players_data.csv', parse_dates=True)
+players_dataset['dob'] = pd.to_datetime(players_dataset['dob'], errors='coerce')
+
 
 
 # In[3]:
 
-
+print("get unique players")
 #get unique player id from matches
 players_from_matches = matches_dataset_final['player_id'].unique()
 
@@ -73,15 +75,9 @@ len(diff)
 
 # In[27]:
 
-
+print("remove old players")
 #remove players that are too old (born before 1960)
-for i in range(0,len(players_dataset)-1):
-    yob = players_dataset.iloc[i]['dob']
-    yob = str(yob)
-    yob = yob[:4]
-    yob = int(yob)
-    if yob <= 1960 : 
-        players_dataset = players_dataset.drop(players_dataset.index[i])
+players_dataset = players_dataset[players_dataset['dob'].dt.year > 1959]
 
 
 # In[22]:
@@ -112,7 +108,7 @@ plyrs
 
 # In[29]:
 
-
+print("match ATP match and player data")
 #find players we need in players_data
 needed_players = pd.DataFrame()
 for i in range(len(plyrs)):
@@ -135,7 +131,7 @@ needed_players
 
 # In[35]:
 
-
+print("merge and save data")
 #merge with remaining
 merged_players_data = pd.merge(needed_players,plyrs,on='player_id',how='outer')
 
