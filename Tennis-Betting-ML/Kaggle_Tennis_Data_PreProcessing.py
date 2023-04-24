@@ -1,66 +1,48 @@
 #!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
 
 import pandas as pd
+from helper_functions import print_elapsed_time
+import os
+
+print("Importing Matches Data")
+print_elapsed_time()
 data = pd.read_csv("all_matches.csv")
 data.head()
 
-
-# In[2]:
-
-
+print("Importing Tournaments Data")
+print_elapsed_time()
 tournaments = pd.read_csv("all_tournaments.csv")
 tournaments.head()
-tourneys = tournaments[tournaments.masters >= 100]
-
-
-# In[3]:
-
 
 #getting only the tournaments we need
+print("Filter out old tournaments")
+print_elapsed_time()
 tourneys = tournaments[tournaments.masters >= 100]
 tourneys = tourneys[tourneys.year>=2000]
 tourneys
 
-
-# In[4]:
-
-
 #making a new dataset with tourney_id and year
+print("Make tourney id")
+print_elapsed_time()
 tourneys_id = [tourneys.year,tourneys.tournament] 
 tourneys_id = pd.concat(tourneys_id,axis=1)
 tourneys_id
 
-
-# In[5]:
-
-
 #selecting only the matches from the tournaments previously selected
+print("Select matches from tournments we previously filtered")
+print_elapsed_time()
 data = data[data.year >= 2000]
 data = data[data.masters >= 100]
 
-
-# In[6]:
-
-
 #merging tourney_id and year 
-
-#data
-#type(data.tournament.loc[3])
-#type(tourneys_id.tournament.loc[6])
 t_years = tourneys_id.year
 t_names = tourneys_id.tournament
 t_info = t_names + t_years.astype(str)
 t_info = t_info.reset_index(drop=True)
 t_info
 
-
-# In[7]:
-
-
+print("Creating final dataframe for matches")
+print_elapsed_time()
 #creating final dataframe for storing matches
 final_df = pd.DataFrame(index = range(0,352512),columns = [#general info
                                    'start_date',
@@ -155,78 +137,25 @@ final_df = pd.DataFrame(index = range(0,352512),columns = [#general info
     
 final_df.fillna(0)
 
-
-# In[8]:
-
-
 #creating a dictionary of dataframes, every df is a torunament
 tourney_dfs = {}
 
 #remove doubles
+print("Remove doubles matches")
+print_elapsed_time()
 data = data.loc[data["doubles"]=='f']
 data = data.reset_index(drop=True)
 i=0
+
 #creating individual dataframes for every tournament and storing them into a dictionary tourneys_dfs
-for  year,tournament in zip(t_years,t_names) :
+print("Create DF for each tournmanet")
+print_elapsed_time()
+for year,tournament in zip(t_years,t_names) :
     tourney_dfs[t_info[i]] = data.loc[(data["year"]==year) & (data["tournament"]==tournament)]
     i+=1
-    
-
-
-# In[9]:
-
-
-data.columns
-
-
-# In[11]:
-
 
 #test
-test = tourney_dfs['prague_challenger2015']
-test
-
-
-# In[12]:
-
-
-#test
-test.iloc[4].player_id
-
-
-# In[13]:
-
-
-final_df.columns
-
-
-# In[32]:
-
-
-#test
-tourney_dfs['nottingham2015']
-
-
-# In[33]:
-
-
-data
-
-
-# In[10]:
-
-
 data = data.reset_index(drop=True)
-
-
-# In[11]:
-
-
-data
-
-
-# In[12]:
-
 
 #getting number of total rows in tourney_dfs
 k=0
@@ -234,15 +163,10 @@ for key,value in tourney_dfs.items():
     j=len(value)
     k = k + j
     
-print(k)
-
-
-# In[13]:
-
-
-#creating a final dataframe for every tournament and storing it in a dictionary
 final_dfs = {}
 i=0
+print("Create structure for final_df")
+print_elapsed_time()
 for  key,value in tourney_dfs.items() :
     final_dfs[key] = pd.DataFrame(index = range(0,len(value)),columns = [#general info
                                    'start_date',
@@ -297,7 +221,7 @@ for  key,value in tourney_dfs.items() :
                                    'total_points_won_1',
                                    'player_1_victory',
                                    'retirement_1',
-                                   'seed', 
+                                   'seed_1', 
                                    'won_first_set_1',
                                    'nation_1',
                                    #player 2 info, all relevant
@@ -337,194 +261,138 @@ for  key,value in tourney_dfs.items() :
     final_dfs[key].fillna(0)
     i+=1
 
-
-# In[42]:
-
-
-final_dfs
-
-
-# In[14]:
-
-
+print("Write match data into each dataframe")
+print_elapsed_time()
 #populating dataframes with matches data
-k=0
-for key,value in tourney_dfs.items():
+for key, value in tourney_dfs.items():
+
+    main = value
+    temp = value
     
-    for i in range(len(value)):
-        #add first match
-        final_dfs[key].iloc[i].start_date = value.iloc[i].start_date
-        final_dfs[key].iloc[i].end_date = value.iloc[i].end_date
-        final_dfs[key].iloc[i].location = value.iloc[i].location
-        final_dfs[key].iloc[i].court_surface = value.iloc[i].court_surface
-        final_dfs[key].iloc[i].prize_money = value.iloc[i].prize_money
-        final_dfs[key].iloc[i].currency = value.iloc[i].currency
-        final_dfs[key].iloc[i].year = value.iloc[i].year
-        final_dfs[key].iloc[i].player_id = value.iloc[i].player_id
-        final_dfs[key].iloc[i].player_name = value.iloc[i].player_name
-        final_dfs[key].iloc[i].opponent_id = value.iloc[i].opponent_id
-        final_dfs[key].iloc[i].opponent_name = value.iloc[i].opponent_name
-        final_dfs[key].iloc[i].tournament = value.iloc[i].tournament
-        final_dfs[key].iloc[i].round = value.iloc[i].round
-        final_dfs[key].iloc[i].num_sets = value.iloc[i].num_sets
-        final_dfs[key].iloc[i].doubles = value.iloc[i].doubles
-        final_dfs[key].iloc[i].masters = value.iloc[i].masters
-        final_dfs[key].iloc[i].round_num = value.iloc[i].round_num
-        final_dfs[key].iloc[i].duration = value.iloc[i].duration
-        final_dfs[key].iloc[i].total_points = value.iloc[i].total_points
-        final_dfs[key].iloc[i].sets_won_1 = value.iloc[i].sets_won
-        final_dfs[key].iloc[i].games_won_1 = value.iloc[i].games_won
-        final_dfs[key].iloc[i].games_against_1 = value.iloc[i].games_against
-        final_dfs[key].iloc[i].tiebreaks_won_1 = value.iloc[i].tiebreaks_won
-        final_dfs[key].iloc[i].tiebreaks_total = value.iloc[i].tiebreaks_total
-        final_dfs[key].iloc[i].serve_rating_1 = value.iloc[i].serve_rating
-        final_dfs[key].iloc[i].aces_1 = value.iloc[i].aces
-        final_dfs[key].iloc[i].double_faults_1 = value.iloc[i].double_faults
-        final_dfs[key].iloc[i].first_serve_made_1 = value.iloc[i].first_serve_made
-        final_dfs[key].iloc[i].first_serve_attempted_1 = value.iloc[i].first_serve_attempted
-        final_dfs[key].iloc[i].first_serve_points_made_1 = value.iloc[i].first_serve_points_made
-        final_dfs[key].iloc[i].first_serve_points_attempted_1 = value.iloc[i].first_serve_points_attempted
-        final_dfs[key].iloc[i].second_serve_points_made_1 = value.iloc[i].second_serve_points_made
-        final_dfs[key].iloc[i].second_serve_points_attempted_1 = value.iloc[i].second_serve_points_attempted
-        final_dfs[key].iloc[i].break_points_saved_1 = value.iloc[i].break_points_saved
-        final_dfs[key].iloc[i].break_points_against_1 = value.iloc[i].break_points_against
-        final_dfs[key].iloc[i].service_games_won_1 = value.iloc[i].service_games_won
-        final_dfs[key].iloc[i].return_rating_1 = value.iloc[i].return_rating
-        final_dfs[key].iloc[i].first_serve_return_points_made_1 = value.iloc[i].first_serve_return_points_made
-        final_dfs[key].iloc[i].first_serve_return_points_attempted_1 = value.iloc[i].first_serve_return_points_attempted
-        final_dfs[key].iloc[i].second_serve_return_points_made_1 = value.iloc[i].second_serve_return_points_made
-        final_dfs[key].iloc[i].second_serve_return_points_attempted_1 = value.iloc[i].second_serve_return_points_attempted
-        final_dfs[key].iloc[i].break_points_made_1 = value.iloc[i].break_points_made
-        final_dfs[key].iloc[i].break_points_attempted_1 = value.iloc[i].break_points_attempted
-        final_dfs[key].iloc[i].return_games_played_1 = value.iloc[i].return_games_played
-        final_dfs[key].iloc[i].service_points_won_1 = value.iloc[i].service_points_won
-        final_dfs[key].iloc[i].service_points_attempted_1 = value.iloc[i].service_points_attempted
-        final_dfs[key].iloc[i].return_points_won_1 = value.iloc[i].return_points_won
-        final_dfs[key].iloc[i].return_points_attempted_1 = value.iloc[i].return_points_attempted
-        final_dfs[key].iloc[i].total_points_won_1 = value.iloc[i].total_points_won
-        final_dfs[key].iloc[i].player_1_victory = value.iloc[i].player_victory
-        final_dfs[key].iloc[i].retirement_1 = value.iloc[i].retirement
-        final_dfs[key].iloc[i].seed = value.iloc[i].seed
-        final_dfs[key].iloc[i].won_first_set_1 = value.iloc[i].won_first_set
-        final_dfs[key].iloc[i].nation_1 = value.iloc[i].nation
-
-
-        #search for matching match
-        match_temp = value.loc[(value['opponent_id'] == value.iloc[i]['player_id']) & (value['player_id'] == value.iloc[i]['opponent_id'])]
-        #merge
-        final_dfs[key].iloc[i].sets_won_2                       = match_temp['sets_won'].values[0]
-        final_dfs[key].iloc[i].games_won_2                      = match_temp['games_won'].values[0]
-        final_dfs[key].iloc[i].games_against_2                  = match_temp['games_against'].values[0]
-        final_dfs[key].iloc[i].tiebreaks_won_2                  = match_temp['tiebreaks_won'].values[0]
-        final_dfs[key].iloc[i].serve_rating_2                   = match_temp['serve_rating'].values[0]
-        final_dfs[key].iloc[i].aces_2                           = match_temp['aces'].values[0]
-        final_dfs[key].iloc[i].double_faults_2                  = match_temp['double_faults'].values[0]
-        final_dfs[key].iloc[i].first_serve_made_2               = match_temp['first_serve_made'].values[0]
-        final_dfs[key].iloc[i].first_serve_attempted_2          = match_temp['first_serve_attempted'].values[0]
-        final_dfs[key].iloc[i].first_serve_points_made_2        = match_temp['first_serve_points_made'].values[0]
-        final_dfs[key].iloc[i].first_serve_points_attempted_2   = match_temp['first_serve_points_attempted'].values[0]
-        final_dfs[key].iloc[i].second_serve_points_made_2       = match_temp['second_serve_points_made'].values[0]
-        final_dfs[key].iloc[i].second_serve_points_attempted_2  = match_temp['second_serve_points_attempted'].values[0]
-        final_dfs[key].iloc[i].break_points_saved_2             = match_temp['break_points_saved'].values[0]
-        final_dfs[key].iloc[i].break_points_against_2           = match_temp['break_points_against'].values[0]
-        final_dfs[key].iloc[i].service_games_won_2              = match_temp['service_games_won'].values[0]
-        final_dfs[key].iloc[i].return_rating_2                  = match_temp['return_rating'].values[0]
-        final_dfs[key].iloc[i].first_serve_return_points_made_2 = match_temp['first_serve_return_points_made'].values[0]
-        final_dfs[key].iloc[i].first_serve_return_points_attempted_2 = match_temp['first_serve_return_points_attempted'].values[0]
-        final_dfs[key].iloc[i].second_serve_return_points_made_2 = match_temp['second_serve_return_points_made'].values[0]
-        final_dfs[key].iloc[i].second_serve_return_points_attempted_2 = match_temp['second_serve_return_points_attempted'].values[0]
-        final_dfs[key].iloc[i].break_points_made_2              = match_temp['break_points_made'].values[0]
-        final_dfs[key].iloc[i].break_points_attempted_2         = match_temp['break_points_attempted'].values[0]
-        final_dfs[key].iloc[i].return_games_played_2            = match_temp['return_games_played'].values[0]
-        final_dfs[key].iloc[i].service_points_won_2             = match_temp['service_points_won'].values[0]
-        final_dfs[key].iloc[i].service_points_attempted_2       = match_temp['service_points_attempted'].values[0]
-        final_dfs[key].iloc[i].return_points_won_2              = match_temp['return_points_won'].values[0]
-        final_dfs[key].iloc[i].return_points_attempted_2        = match_temp['return_points_attempted'].values[0]
-        final_dfs[key].iloc[i].total_points_won_2               = match_temp['total_points_won'].values[0]
-        final_dfs[key].iloc[i].player_2_victory                 = match_temp['player_victory'].values[0]
-        final_dfs[key].iloc[i].retirement_2                     = match_temp['retirement'].values[0]
-        final_dfs[key].iloc[i].won_first_set_2                  = match_temp['won_first_set'].values[0]
-        final_dfs[key].iloc[i].nation_2                         = match_temp['nation'].values[0]        
-                
-        #clear temporary match storage
-        #match_temp = match_temp[0:0]
-    k+=1
-    print("checkpoint : " + str(k))
-
-        #lastly drop duplicate matches 
+    inner = main.merge(temp, how='inner', left_on=['player_id', 'opponent_id'], right_on=['opponent_id', 'player_id'])
+    
+    final_dfs[key] = final_dfs[key].assign(
+        start_date=inner['start_date_x'],
+        end_date=inner['end_date_x'],
+        location=inner['location_x'],
+        court_surface=inner['court_surface_x'],
+        prize_money=inner['prize_money_x'],
+        currency=inner['currency_x'],
+        year=inner['year_x'],
+        player_id=inner['player_id_x'],
+        player_name=inner['player_name_x'],
+        opponent_id=inner['opponent_id_x'],
+        opponent_name=inner['opponent_name_x'],
+        tournament=inner['tournament_x'],
+        round=inner['round_x'],
+        num_sets=inner['num_sets_x'],
+        doubles=inner['doubles_x'],
+        masters=inner['masters_x'],
+        round_num=inner['round_num_x'],
+        duration=inner['duration_x'],
+        total_points=inner['total_points_x'],
+        sets_won_1=inner['sets_won_x'],
+        games_won_1=inner['games_won_x'],
+        games_against_1=inner['games_against_x'],
+        tiebreaks_won_1=inner['tiebreaks_won_x'],
+        tiebreaks_total=inner['tiebreaks_total_x'],
+        serve_rating_1=inner['serve_rating_x'],
+        aces_1=inner['aces_x'],
+        double_faults_1=inner['double_faults_x'],
+        first_serve_made_1=inner['first_serve_made_x'],
+        first_serve_attempted_1=inner['first_serve_attempted_x'],
+        first_serve_points_made_1=inner['first_serve_points_made_x'],
+        first_serve_points_attempted_1=inner['first_serve_points_attempted_x'],
+        second_serve_points_made_1=inner['second_serve_points_made_x'],
+        second_serve_points_attempted_1=inner['second_serve_points_attempted_x'],
+        break_points_saved_1=inner['break_points_saved_x'],
+        break_points_against_1=inner['break_points_against_x'],
+        service_games_won_1=inner['service_games_won_x'],
+        return_rating_1=inner['return_rating_x'],
+        first_serve_return_points_made_1=inner['first_serve_return_points_made_x'],
+        first_serve_return_points_attempted_1=inner['first_serve_return_points_attempted_x'],
+        second_serve_return_points_made_1=inner['second_serve_return_points_made_x'],
+        second_serve_return_points_attempted_1=inner['second_serve_return_points_attempted_x'],
+        break_points_made_1=inner['break_points_made_x'],
+        break_points_attempted_1=inner['break_points_attempted_x'],
+        return_games_played_1=inner['return_games_played_x'],
+        service_points_won_1=inner['service_points_won_x'],
+        service_points_attempted_1=inner['service_points_attempted_x'],
+        return_points_won_1=inner['return_points_won_x'],
+        return_points_attempted_1=inner['return_points_attempted_x'],
+        total_points_won_1=inner['total_points_won_x'],
+        player_1_victory=inner['player_victory_x'],
+        retirement_1=inner['retirement_x'],
+        seed_1=inner['seed_x'],
+        won_first_set_1=inner['won_first_set_x'],
+        nation_1=inner['nation_x'],
         
-
-
-# In[15]:
-
-
-print(len(tourney_dfs.items()))
-print(len(t_info))
-#the values are different because some tournaments inside the Tournaments.csv are not present inside the All_Matches.csv
-#some tournaments are missing
-
-
-# In[50]:
-
-
-#test save
-final_dfs['kosice_challenger2012'].to_csv('kosice_challenger2012.csv')
-
-
-# In[16]:
-
+        sets_won_2=inner['sets_won_y'],
+        games_won_2=inner['games_won_y'],
+        games_against_2=inner['games_against_y'],
+        tiebreaks_won_2=inner['tiebreaks_won_y'],
+        serve_rating_2=inner['serve_rating_y'],
+        aces_2=inner['aces_y'],
+        double_faults_2=inner['double_faults_y'],
+        first_serve_made_2=inner['first_serve_made_y'],
+        first_serve_attempted_2=inner['first_serve_attempted_y'],
+        first_serve_points_made_2=inner['first_serve_points_made_y'],
+        first_serve_points_attempted_2=inner['first_serve_points_attempted_y'],
+        second_serve_points_made_2=inner['second_serve_points_made_y'],
+        second_serve_points_attempted_2=inner['second_serve_points_attempted_y'],
+        break_points_saved_2=inner['break_points_saved_y'],
+        break_points_against_2=inner['break_points_against_y'],
+        service_games_won_2=inner['service_games_won_y'],
+        return_rating_2=inner['return_rating_y'],
+        first_serve_return_points_made_2=inner['first_serve_return_points_made_y'],
+        first_serve_return_points_attempted_2=inner['first_serve_return_points_attempted_y'],
+        second_serve_return_points_made_2=inner['second_serve_return_points_made_y'],
+        second_serve_return_points_attempted_2=inner['second_serve_return_points_attempted_y'],
+        break_points_made_2=inner['break_points_made_y'],
+        break_points_attempted_2=inner['break_points_attempted_y'],
+        return_games_played_2=inner['return_games_played_y'],
+        service_points_won_2=inner['service_points_won_y'],
+        service_points_attempted_2=inner['service_points_attempted_y'],
+        return_points_won_2=inner['return_points_won_y'],
+        return_points_attempted_2=inner['return_points_attempted_y'],
+        total_points_won_2=inner['total_points_won_y'],
+        player_2_victory=inner['player_victory_y'],
+        retirement_2=inner['retirement_y'],
+        won_first_set_2=inner['won_first_set_y'],
+        nation_2=inner['nation_y']
+    )
 
 #getting list of dataframe names
 frames=[]
 for key,value in final_dfs.items():
     frames.append(value)
-
-
-# In[53]:
-
-
+    
 #getting final dataframe
 final_df = pd.concat(frames)
 
-
-# In[54]:
-
-
-#printing final dataframe
-final_df
-
-
-# In[56]:
-
-
+print("Save final_kaggle_dataset CSV and PKL file")
+print_elapsed_time()
 #saving final 
 final_df.to_csv('final_kaggle_dataset.csv')
-
-
-# In[57]:
-
 
 #saving final
 final_df.to_pickle('final_kaggle_dataset.pkl')
 
-
-# In[18]:
-
-
 #saving each tournament dataframe to a specific .csv file
+print("Save each tournaments data to it's own CSV")
+print_elapsed_time()
+directory = './Tournaments_Data'
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
+os.chdir(directory)
 for key,value in final_dfs.items():
-    csv_name = "Tournaments_Data" + "\ " + str(key) + ".csv"
-    value.to_csv(csv_name)
+    csv_name = str(key) + ".csv"
+    if len(value) > 0:
+        value.to_csv(csv_name)
+    else:
+        pass
+    
     csv_name=''
 
-
-# In[ ]:
-
-
-#Next steps:
-
-#1 see if matches mentioned two times are needed
-#2 add betting odds
-#remove unnecessary columns
-#...
-
+os.chdir('../')

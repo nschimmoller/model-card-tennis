@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# coding: utf-8
 
-# In[1]:
-
-
+import pandas as pd
+from helper_functions import print_elapsed_time
 import os
-os.chdir(r'C:\Users\PC\Desktop\Kaggle_Tennis\Tournaments_Data')
+os.chdir('./Tournaments_Data')
 cwd = os.getcwd()
 files = os.listdir(cwd)
 
@@ -14,69 +12,64 @@ files = os.listdir(cwd)
 
 
 #remove double matches function
-
 def remove_doubles(data):
-    indexes = []
-    for i in range(0,len(data)):
-        temp = data.index[ (data['player_id'] == data.iloc[i]['opponent_id']) & (data['opponent_id'] == data.iloc[i]['player_id']).tolist()]
-        indexes.append((i,int(temp[0])))     
-    
-    for (a,b) in indexes:
-        if (b,a) in indexes:
-            indexes.remove((b,a))
-    index_new = []
-    for item in indexes:
-        index_new.append(item[1])
-    data = data.drop(index=index_new)
+    """Remove duplicated rows from a DataFrame based on sorted player and opponent IDs.
+
+    Args:
+        data (pandas.DataFrame): The input DataFrame with rows to be deduplicated.
+
+    Returns:
+        pandas.DataFrame: The deduplicated DataFrame.
+
+    Raises:
+        None.
+    """
+
+    def sort_teams(row):
+        """Helper function to sort and concatenate player and opponent IDs.
+
+        Args:
+            row (pandas.Series): A row of a DataFrame containing 'player_id' and 'opponent_id' columns.
+
+        Returns:
+            str or None: A concatenated and sorted string of 'player_id' and 'opponent_id', or None if either value is None.
+        """
+        try:
+            if row['player_id'] is None or row['opponent_id'] is None:
+                return None
+            return '_'.join(sorted([row['player_id'], row['opponent_id']]))
+        except TypeError:
+            return None
+
+    data['match'] = data.apply(sort_teams, axis=1)
+
+    # Drop rows where the match column is None
+    data.dropna(subset=['match'], inplace=True)
+
+    # Drop duplicate rows based on the new "match" column
+    data.drop_duplicates(subset='match', inplace=True)
+
+    # Drop the "match" column, as it is no longer needed
+    data.drop('match', axis=1, inplace=True)
+
     data = data.reset_index(drop=True)
-        
+
+    try:
+        data = data.drop(columns='Unnamed: 0', axis=1)
+    except:
+        pass
+    
     return data
 
-
-# In[118]:
-
-
-#test
-import pandas as pd
-test_set = pd.read_csv(' miami2010.csv')
-
-
-# In[119]:
-
-
-test_set = remove_doubles(test_set)
-
-
-# In[120]:
-
-
-test_set.loc[ (test_set['player_id'] == test_set.iloc[1]['opponent_id']) & (test_set['opponent_id'] == test_set.iloc[1]['player_id'])]
-
-
-# In[121]:
-
-
-test_set['player_id'] + '   ' +test_set['opponent_id']
-
-
-# In[122]:
-
-
-test_set.to_csv('test_miami2010.csv')
-
-
-# In[4]:
-
-
-import pandas as pd
+print_elapsed_time()
+files = os.listdir(cwd)
 for file in files:
     temp_dat = pd.read_csv(str(file))
     temp_dat = remove_doubles(temp_dat)
-    temp_dat.to_csv(str(file))
+    temp_dat.to_csv(str(file), index=False)
+print_elapsed_time()
 
-
-# In[ ]:
-
+os.chdir('../')
 
 
 

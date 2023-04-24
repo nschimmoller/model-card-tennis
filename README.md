@@ -8,6 +8,10 @@ However, the model itself is predicated off of a large [Kaggle Tennis Dataset](h
 
 # Next Steps
 
+## Actions Taken
+
+1. Created helper_function file with with print elapsed time function to track progress during execution.
+
 ## Reproduce Results from Initial Tennis-Betting-ML Model
 
 Before spending time swapping out the Kaggle ATP & ITF Dataset for the GitHub Tennis ATP dataset I want to ensure that the Tennis ATP dataset has the necessary datapoints that proved useful in predicting the outcomes of matches. 
@@ -30,9 +34,9 @@ I am reading through each file to determine the proper order of their usage and 
 # Order of Operation
 
 1. `Kaggle_Tennis_Data_PreProcessing.py` goes first
- * I've updated some of this code to run more efficiently, but have not moved it to the file yet. It is currently in the `tennis_model.ipynb` file
+ * I have updated this file with more efficient code
 2. Next is `Remove Double Matches.py`
- * I've updated some of this code to run more efficiently, but have not moved it to the file yet. It is currently in the `tennis_model.ipynb` file
+ * I have updated this file with more efficient code
  * The original dataset has a row per player and match so Djokovic vs Nadal and Nadal vs Djokovic. 
  * The first file joined these two matches together, this one removes the duplicate data
 3. Next is `Players_Data_PreProc.py`
