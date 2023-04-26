@@ -3,10 +3,15 @@
 #initialize elo ranking - set E_i(0) = 1500 in other words set initial elo ranking to 1500 for all players
 #get players list
 import pandas as pd
+import os
 from helper_functions import print_elapsed_time
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from multiprocessing import Pool, cpu_count
+import functools
+import pickle
+from tqdm import tqdm
+import logging
 import time
 import sys
 
@@ -120,23 +125,28 @@ import sys
 # copy['m_2'] = m_2
 # copy.to_csv('auxiliary_df.csv', index=False)
 
-#checkpoint
-print("\nReading in files from checkpoint")
-print_elapsed_time()
 copy = pd.read_csv('auxiliary_df.csv', parse_dates=True)
-
-# Load the matches data
-matches_df = pd.read_csv('final_df.csv', parse_dates=True)
+copy = copy[:500]
 
 # Create a list of step sizes to use in the Elo calculation
-steps = [50, 100, 150, 200, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 75000, 100000, 125000, 150000, 200000]
+# steps = [50, 100, 150, 200, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 4000, 5000, 10000, 20000, 30000, 40000, 50000, 75000, 100000, 125000, 150000, 200000]
 
-# Define the function to search for previous matches
-def search_rows(start_row: int, player_id: str, data: pd.DataFrame, steps: List[int], starting_elo: float = 1500, search_rows_cache: Dict = None) -> Tuple[float, int]:
+# Create a logger object and add a file handler
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler('my_log_file.log')
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+
+def search_rows(start_row: int, player_id: str, data: pd.DataFrame, steps: List[int], starting_elo: float = 1500) -> Tuple[float, int]:
     """
-    Search the rows of the data frame starting from the given start row to find previous matches
-    played by the player with the given player_id. Calculate the player's Elo rating based on their
-    performance in those matches.
+    Searches the rows of the data frame starting from the given start row to find previous matches
+    played by the player with the given player_id. Calculates the player's Elo rating based on their
+    performance in those matches. This function uses a memoized version of the search_rows function
+    to store and reuse results to improve performance.
 
     Args:
         start_row (int): The index of the row to start the search from.
@@ -144,29 +154,45 @@ def search_rows(start_row: int, player_id: str, data: pd.DataFrame, steps: List[
         data (pandas.DataFrame): The data frame containing the matches data.
         steps (List[int]): A list of integers representing the step sizes to use in the Elo calculation.
         starting_elo (float): The starting Elo rating to use for players without an existing rating.
-        search_rows_cache (dict): Dictionary of search results to cache to speed up process
 
     Returns:
         Tuple[float, int]: A tuple containing the player's Elo rating and the number of matches used to calculate it.
     """
+    print("Searched Rows function called successfuly")
+    data_hash = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)  # Compute a hashable representation of the data
+    return search_rows_memoized(start_row, player_id, data_hash, tuple(steps), starting_elo)
 
-    if search_rows_cache is None:
-        search_rows_cache = {}
+@functools.lru_cache(maxsize=10000)
+def search_rows_memoized(start_row: int, player_id: str, data_hash: bytes, steps: Tuple[int], starting_elo: float = 1500) -> Tuple[float, int]:
+    """
+    Memoized version of the search_rows function. Searches the rows of the data frame starting from the given start row
+    to find previous matches played by the player with the given player_id. Calculates the player's Elo rating based on
+    their performance in those matches. This function is memoized using functools.lru_cache to store results and improve
+    performance.
 
-    cache_key = (start_row, player_id)
-    if cache_key in search_rows_cache:
-        return search_rows_cache[cache_key]
+    Args:
+        start_row (int): The index of the row to start the search from.
+        player_id (str): The ID of the player to search for.
+        data_hash (bytes): The hashable representation of the data frame containing the matches data.
+        steps (Tuple[int]): A tuple of integers representing the step sizes to use in the Elo calculation.
+        starting_elo (float): The starting Elo rating to use for players without an existing rating.
 
+    Returns:
+        Tuple[float, int]: A tuple containing the player's Elo rating and the number of matches used to calculate it.
+    """
+    print("Searched Rows Memoized function called successfuly")
+    data = pickle.loads(data_hash)  # Reconstruct the data frame from the hash
     m, last_elo, victory = None, None, None
 
     for step in steps:
+        print("Step wise search function called successfuly")
         j = max(start_row - step, 0)
         step_bin = data.loc[((data['player_id'] == player_id) & (data['elo_1'] != 0)) | ((data['opponent_id'] == player_id) & (data['elo_2'] != 0)), ['player_id', 'opponent_id', 'm_1', 'elo_1', 'm_2', 'elo_2', 'player_1_victory', 'player_2_victory']].iloc[j:start_row + 1]
 
         if len(step_bin) == 0:
             continue
 
-        row = step_bin.iloc[-1]
+        row= step_bin.iloc[-1]
 
         if row['player_id'] == player_id:
             m = row['m_1']
@@ -184,11 +210,74 @@ def search_rows(start_row: int, player_id: str, data: pd.DataFrame, steps: List[
         else:
             victory = None
 
-        result = m, last_elo, victory
-        search_rows_cache[cache_key] = result
-        return result
+    result = m, last_elo, victory
+    return result
 
+def update_last_processed_row(file_name: str, row: int) -> None:
+    """
+    Update the last processed row in a file.
 
+    Args:
+        file_name (str): The name of the file where the last processed row value should be stored.
+        row (int): The value of the last processed row to store in the file.
+    """
+    print("Updating last processed row")
+    with open(file_path, 'w') as f:
+        f.write(str(last_processed_row))
+
+def read_last_processed_row(file_name: str) -> int:
+    """
+    Read the last processed row from a file.
+
+    Args:
+        file_name (str): The name of the file containing the last processed row value.
+
+    Returns:
+        int: The last processed row value, or 0 if the file does not exist or the content is not a valid integer.
+    """
+    print("Reading last processed row")
+    try:
+        with open(file_path, 'r') as f:
+            last_processed_row = int(f.read())
+    except FileNotFoundError:
+        last_processed_row = -1
+    return last_processed_row
+
+def process_chunk(args):
+    """
+    Process a chunk of the dataframe to compute Elo ratings using the compute_elo_ratings function.
+
+    Args:
+        args (tuple): A tuple containing:
+            chunk (pandas.DataFrame): A chunk of the matches dataframe to process.
+            steps (int): Number of iterations to use when computing the Elo rating.
+
+    Returns:
+        pandas.DataFrame: A DataFrame with updated Elo ratings for the provided chunk.
+    """
+    chunk = args
+    try:
+        logging.info("Processing the dataframe chunk")
+        return compute_elo_ratings(chunk)
+    except Exception as e:
+        logging.exception(f"Error processing chunk: {e}")
+
+    
+def divide_dataframe(df, n_chunks):
+    """
+    Divide a given dataframe into a specified number of smaller chunks.
+
+    Args:
+        df (pandas.DataFrame): The dataframe to divide into chunks.
+        n_chunks (int): The number of chunks to divide the dataframe into.
+
+    Returns:
+        List[pandas.DataFrame]: A list of smaller dataframes (chunks) derived from the original dataframe.
+    """
+    chunk_size = len(df) // n_chunks
+    print("Dividing dataframe into " + str(n_chunks) + " of size " + str(chunk_size))
+    chunks = [df[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
+    return chunks
 
 # Define the function to calculate the Elo rating
 def elo_calc(elo_1: float, elo_2: float, w_1: int, w_2: int, m_1: int, m_2: int, initial_elo=1500) -> Tuple[float, float]:
@@ -206,6 +295,7 @@ def elo_calc(elo_1: float, elo_2: float, w_1: int, w_2: int, m_1: int, m_2: int,
     Returns:
         float: The updated Elo rating of the player and opponent.
     """
+    print("Calculating ELO")
     if elo_1 is None:
         elo_1 = initial_elo
     if elo_2 is None:
@@ -219,16 +309,21 @@ def elo_calc(elo_1: float, elo_2: float, w_1: int, w_2: int, m_1: int, m_2: int,
 
     return new_elo_1, new_elo_2
 
-def compute_elo_ratings(matches_df, steps=100, search_cache=None, print_progress=True):
+def compute_elo_ratings(matches_df, steps=100, update_last_processed_row=None, last_processed_row_file=None, update_interval=1000, output_file='elo.csv', temp_output_file='elo_temp.csv'):
     """
     Compute Elo ratings for each player based on their match history.
-    
+
     Args:
     - matches_df: Pandas DataFrame containing match data, including columns for player_id, opponent_id, 
       elo_1, elo_2, and date.
     - steps: Number of iterations to use when computing the Elo rating.
     - search_cache: Optional dict of cached search results, to speed up computation.
-    
+    - update_last_processed_row: Optional function to update the last processed row in a file.
+    - last_processed_row_file: Optional file path to the file storing the last processed row.
+    - update_interval: Interval at which to update the output and temp files.
+    - output_file: Output file for the final Elo ratings.
+    - temp_output_file: Temporary output file for storing Elo ratings during computation.
+
     Returns:
     - A copy of matches_df with updated Elo ratings.
     """
@@ -238,49 +333,90 @@ def compute_elo_ratings(matches_df, steps=100, search_cache=None, print_progress
     player_ids = set(matches_df['player_id']).union(set(matches_df['opponent_id']))
     player_elo = {pid: 1500 for pid in player_ids}
 
-    modified_rows = []
-    for i, row in updated_df.iterrows():
-        player_1_id = row['player_id']
-        player_2_id = row['opponent_id']
+    if update_last_processed_row is not None:
+        last_processed_row = read_last_processed_row(last_processed_row_file)
+        updated_df = updated_df.iloc[last_processed_row + 1:]
+        print("Resuming from " + str(last_processed_row))
+
+    for i, row in enumerate(updated_df.iterrows()):
+        player_1_id = row[1]['player_id']
+        player_2_id = row[1]['opponent_id']
         elo_1 = player_elo.get(player_1_id, 1500)
         elo_2 = player_elo.get(player_2_id, 1500)
-        m_1, _, w_1 = search_rows(i, player_1_id, updated_df, steps, search_rows_cache=search_cache)
-        m_2, _, w_2 = search_rows(i, player_2_id, updated_df, steps, search_rows_cache=search_cache)
+        m_1, _, w_1 = search_rows(i, player_1_id, updated_df, steps)
+        m_2, _, w_2 = search_rows(i, player_2_id, updated_df, steps)
         player_elo[player_1_id], player_elo[player_2_id] = elo_calc(elo_1, elo_2, w_1, w_2, m_1, m_2)
         updated_df.at[i, 'elo_1'] = player_elo[player_1_id]
         updated_df.at[i, 'elo_2'] = player_elo[player_2_id]
-        modified_rows.append(i)
 
-        if len(modified_rows) >= 100:
-            updated_df.loc[modified_rows, ['elo_1', 'elo_2']] = updated_df.loc[modified_rows, ['elo_1', 'elo_2']]
-            modified_rows = []
+        if update_last_processed_row is not None and i % update_interval == 0:
+            print("THIS SHOULD UPDATE LAST PROCSSED ROW")
+            update_last_processed_row(i, last_processed_row_file)
+            updated_df.to_csv(temp_output_file, index=False)
 
-        if print_progress:
-            if i % 1000 == 0:
-                print(f"Processed {i} rows")
+    if update_last_processed_row is not None:
+        update_last_processed_row(len(updated_df) - 1, last_processed_row_file)
 
-    if len(modified_rows) > 0:
-        updated_df.loc[modified_rows, ['elo_1', 'elo_2']] = updated_df.loc[modified_rows, ['elo_1', 'elo_2']]
+    updated_df.to_csv(output_file, index=False)
 
     return updated_df
 
-matches_cache = {}
-matches_df = compute_elo_ratings(copy, steps, matches_cache)
-print(matches_df.head())
+if __name__ == "__main__":
+    print("\nReading in files from checkpoint")
+    print_elapsed_time()
+
+    # Load the matches data
+    matches_df = pd.read_csv('final_df.csv', parse_dates=True)
+
+    cwd = os.getcwd()
+    last_processed_row_file = 'last_processed_row.txt'
+    file_path = os.path.join(cwd, last_processed_row_file)
+    n_processes = cpu_count()
+    n_chunks = n_processes * 2  # You can adjust this value depending on your system
+    print(n_chunks)
+    n_chunks = 10
+    print(n_chunks)
+
+    # Read the last processed row
+    last_processed_row = read_last_processed_row(last_processed_row_file)
+    if last_processed_row is not None:
+        print(f"Resuming from last processed row: {last_processed_row}")
+        copy = copy.loc[last_processed_row + 1:]
+
+    matches_cache = {}
+    chunks = divide_dataframe(copy, n_chunks)
+
+    try:
+        with Pool(n_processes) as pool:
+            # Wrap the iterable with tqdm to display progress
+            results = list(tqdm(pool.imap(process_chunk, [chunk for chunk in chunks]), total=n_chunks))
+    except IndexError as e:
+        logging.exception('Caught an exception', exc_info=e)
+
+    # Combine the results
+    matches_df = pd.concat(results)
+
+    # Save the combined dataframe
+    print(matches_df.head())
+    matches_df.to_csv('elo.csv', index=False)
+
+    # Reset the last processed row
+    update_last_processed_row(-1)
 
 
-matches_cache = {}
-matches_df = compute_elo_ratings(copy, steps, matches_cache)
-print(matches_df.head())
 
-print("\nELO Calculations complete")
-print_elapsed_time()
+# matches_cache = {}
+# matches_df = compute_elo_ratings(copy, steps, matches_cache)
+# print(matches_df.head())
 
-#save matches_df and copy
-print("\nCreate checpoint CSVs")
-print_elapsed_time()
-copy.to_csv('auxiliary_df.csv', index=False)
-matches_df.to_csv('elo.csv', index=False)
+# print("\nELO Calculations complete")
+# print_elapsed_time()
+
+# #save matches_df and copy
+# print("\nCreate checpoint CSVs")
+# print_elapsed_time()
+# copy.to_csv('auxiliary_df.csv', index=False)
+# matches_df.to_csv('elo.csv', index=False)
 
 sys.exit(0)
 

@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
 import pandas as pd
-from helper_functions import print_elapsed_time
 
-#remove double matches function
-def remove_doubles(data):
+from helper_functions import setup_logger
+
+# Set up the logger
+logger = setup_logger(__name__, 'my_log_file.log')
+logger.info('Starting script execution')
+
+# Remove duplicate matches function
+def remove_duplicates(data):
     """Remove duplicated rows from a DataFrame based on sorted player and opponent IDs.
 
     Args:
@@ -44,8 +49,10 @@ def remove_doubles(data):
     # Drop the "match" column, as it is no longer needed
     data.drop('match', axis=1, inplace=True)
 
+    # Reset dataframe index
     data = data.reset_index(drop=True)
 
+    # Try to drop unnamed index's that may still persists
     try:
         data = data.drop(columns='Unnamed: 0', axis=1)
     except:
@@ -53,12 +60,26 @@ def remove_doubles(data):
     
     return data
 
-print_elapsed_time('Removing duplicate rows')
-results = pd.read_csv('final_kaggle_dataset.csv', parse_dates=True)
-results = remove_doubles(results)
-results.to_csv('final_df.csv', index=False)
-print_elapsed_time('Done removing duplicate rows')
+try:
+    from helper_functions import print_elapsed_time
+    
+    # Import Data
+    results = pd.read_csv('final_kaggle_dataset.csv', parse_dates=True)
+    
+    # Call Remove Duplicates Function
+    print_elapsed_time('Removing duplicate rows')
+    results = remove_doubles(results)
 
+    # Save results
+    print_elapsed_time('Done removing duplicate rows')
+    results.to_csv('final_df.csv', index=False)
+    
+    logger.info("Exiting")
+    sys.exit(0)
+
+except Exception as e:
+    logger.exception("An error occurred during script execution")
+    sys.exit(1)
 
 # files = os.listdir(cwd)
 # for file in files:
