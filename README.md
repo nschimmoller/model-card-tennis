@@ -37,7 +37,7 @@ The purpose of Stochastic Gradient Descent (SGD) is to iteratively find a minimu
 	   - Eventually when doing Principal Component Analysis (PCA) it is likely that `last_3` and `last_7` will interfere with one another or overfit the model to recent performance but worth grabbing now to evaluate later
 
 3. Thoughs on the ELO calculation.
-	- I'm getting very wild swings in ![ELO](hugo_armando_elo.jpg) which is leading me to believe that the ELO function needs to be refined. It is good that we see movements in this score, but my gut tells me that after a loss a player's ELO will tank which will lead them to being underrated in their next match.
+	- I'm getting very wild swings in ![ELO](hugo_armando_elo.png) which is leading me to believe that the ELO function needs to be refined. It is good that we see movements in this score, but my gut tells me that after a loss a player's ELO will tank which will lead them to being underrated in their next match.
 	   - It is probably worth seeing if a recursive function can be implemented here to adjust the ELO algorithim with the success outcome being accuracy in predicting future matches. I could imagine this type of recursive loop to be ver computationaly intense. A random grid search of values may be a reasonable solution which will also help in preventing over fitting. 
 
 4. Continue to explore the rest of the repository thoroughly to understand how the different files work together. 
