@@ -6,44 +6,38 @@ I did find a [Tennis-Betting-ML Model written by GitHub user BrandonPolistirolo]
 
 However, the model itself is predicated off of a large [Kaggle Tennis Dataset](https://www.kaggle.com/ehallmar/a-large-tennis-dataset-for-atp-and-itf-betting?select=all_matches.csv) that is not being updated. As an alternative there is an [OpenSource Tennis_ATP Dataset by JeffSackmann](https://github.com/JeffSackmann/tennis_atp) that could prove useful.
 
+# Tennis Betting Algorithm
+This repository contains an open-source tennis betting algorithm that aims to predict the outcomes of singles matches in ATP, WTA, and ATP Challenger Series. The algorithm uses logistic regression, a classification algorithm known for its speed of training, resistance to overfitting, and ability to directly return a match-winning probability.
+
+## Model
+The logistic regression algorithm uses the logistic function to map real-valued inputs between -∞ and +∞ to values between 0 and 1, allowing for its output to be interpreted as a probability. To make a prediction using the model, the algorithm projects a point in the n-dimensional feature space to a real number and then maps it to a value in the acceptable range of probability using the logistic function.
+
+The training of the model consists of optimizing the parameters β by minimizing the logistic loss, which gives a measure of the error of the model in predicting the outcomes of matches used for training.
+
+## Stochastic Gradient Descent
+The purpose of Stochastic Gradient Descent (SGD) is to iteratively find a minimum for the log loss function while adding L2 regularization to prevent overfitting. The SGD algorithm, combined with a log loss function, provides a logistical prediction model as an output. For every iteration, the gradient of the loss function is computed on a sample of the data, and then the weights are updated accordingly. Convergence is achieved when a tolerance constant is satisfied.
+
 # Next Steps
 
-## Actions Taken
+1. I created a function in the `helper_functions.py` file to read and save data to the data folder to keep the main folder a bit more tidy. This should look to be implemented across even already completed rewritten scripts. I've gone ahead and moved the data files into these folders. Code will need to be updated before it will work. 
 
-1. Created helper_function file with with print elapsed time function to track progress during execution.
+2. Thoughts for `kaggle_tennis_data_preprocessing.py`
+	
+	- Court surface should have `carpet` updated to grass
+	- This code should still be updated to calculate things such as `running_total_matches` and `running_total_victories` for each unique court surface
+	- This code due to it's long nature has moderate run times, a few minutes. While this is acceptable for the initialization of the data it could be more efficient by performing certain functions only on the incremental rows it gets in the future. 
+	   - Had a hard enough time getting the running_total_matches to work properly that I'm not sure I want to go back to this portion of the code for a while, but this would be the most difficult part to get working with the incremental update.
 
-## Reproduce Results from Initial Tennis-Betting-ML Model
+2. Thoughts for new step before dropping duplicate matches. 
+	
+	- I'm hitting long run times when trying to calculate players ELOs due to having to search for their data across both `player_id` and `opponent_id` in the `final_df.csv` file. A couple of thoughts:
+	- Before dropping duplicate matches it is probably better to calculate the ELO then as every player will have every match they've played where their player id is in the `player_id` column as opposed to either the `player_id` or `opponent_id` column. 
+	- ELO calculation needs to be added for each `court_surface` once `kaggle_tennis_data_preprocessing.py` is updated
+	- Additionally, you can then easily use a shift function to retrieve players' stats coming into the match. It is probably worth grabbin this data for `last_3` and `last_7` matches in total and on each surface to evaluate recent form. 
+	   - Eventually when doing Principal Component Analysis (PCA) it is likely that `last_3` and `last_7` will interfere with one another or overfit the model to recent performance but worth grabbing now to evaluate later
 
-Before spending time swapping out the Kaggle ATP & ITF Dataset for the GitHub Tennis ATP dataset I want to ensure that the Tennis ATP dataset has the necessary datapoints that proved useful in predicting the outcomes of matches. 
+3. Thoughs on the ELO calculation.
+	- I'm getting very wild swings in ![ELO](hugo_armando_elo.jpg) which is leading me to believe that the ELO function needs to be refined. It is good that we see movements in this score, but my gut tells me that after a loss a player's ELO will tank which will lead them to being underrated in their next match.
+	   - It is probably worth seeing if a recursive function can be implemented here to adjust the ELO algorithim with the success outcome being accuracy in predicting future matches. I could imagine this type of recursive loop to be ver computationaly intense. A random grid search of values may be a reasonable solution which will also help in preventing over fitting. 
 
-Therefore, I am slowly trying to replicate the results reported in the Tennis-Betting-ML Model to check for those data points that were of high SHAP values. 
-
-### Difficulties Reproducing
-
-For as good of an understanding it seems the original author had on DataScience principles in building and training a model, their usage of the Pandas library leaves a lot to be desired. Inefficient code leads to long run times, which will not scale to a production model. 
-
-I am reading through each file to determine the proper order of their usage and updating portions of the code that run slowly.
-
-# What I've learned so far
-
-1. You need to download all_matches, all_players, and all_tournaments data from the [Kaggle Dataset](https://www.kaggle.com/ehallmar/a-large-tennis-dataset-for-atp-and-itf-betting?select=all_matches.csv). 
- * These are too large to include in the repo, so you'll have to reproduce locally
-2. I'm pretty sure that original author also got the atp_players dataset from [Tennis_ATP](https://github.com/JeffSackmann/tennis_atp). 
- * I've included this in the repo
-
-# Order of Operation
-
-1. `Kaggle_Tennis_Data_PreProcessing.py` goes first
- * I have updated this file with more efficient code
-2. Next is `Remove Double Matches.py`
- * I have updated this file with more efficient code
- * The original dataset has a row per player and match so Djokovic vs Nadal and Nadal vs Djokovic. 
- * The first file joined these two matches together, this one removes the duplicate data
-3. Next is `Players_Data_PreProc.py`
- * I have updated this file with more efficient code
-4. Next is `Players_names_fix.py`
-* I have updated this file with more efficient code
-5. Next is `Features_extraction_ELO_Rankings.py`
-* I have updated this file with more efficient code, but have not yet finished doing so.
-
-The remaining order of operation is still a mystery to me
+4. Continue to explore the rest of the repository thoroughly to understand how the different files work together. 
