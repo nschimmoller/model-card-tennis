@@ -22,6 +22,9 @@ def print_elapsed_time(text=''):
     current_datetime = datetime.fromtimestamp(current_time)
     formatted_datetime = current_datetime.strftime('%Y-%m-%d %H:%M:%S')
 
+    if not hasattr(print_elapsed_time, 'last_time'):
+        print_elapsed_time.last_time = None
+
     if not print_elapsed_time.last_time:
         print(f'{text}\n\tCurrent Time: {formatted_datetime}')
         print_elapsed_time.start_time = current_time
