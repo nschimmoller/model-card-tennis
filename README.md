@@ -17,6 +17,67 @@ The training of the model consists of optimizing the parameters β by minimizing
 ## Stochastic Gradient Descent
 The purpose of Stochastic Gradient Descent (SGD) is to iteratively find a minimum for the log loss function while adding L2 regularization to prevent overfitting. The SGD algorithm, combined with a log loss function, provides a logistical prediction model as an output. For every iteration, the gradient of the loss function is computed on a sample of the data, and then the weights are updated accordingly. Convergence is achieved when a tolerance constant is satisfied.
 
+# Simulate Match
+You can simulate the outcome of a tennis match by using the `simulate_tennis_match.py` file. Below is an example. In the future updates will be made to better incoprorate a plaery's historical performance and specific strengths, along with handling for weather.
+
+## Call Function
+```
+from simulate_tennis_match import Player, Match, simulate_match
+import random
+
+# Create a Match instance
+match = Match(player1=None, player2=None, best_of=3, court_surface='hard')
+
+# Create two Player instances
+player1 = Player(name='Roger Federer', skill_level=0.8, match=match)
+player2 = Player(name='Rafael Nadal', skill_level=0.9, match=match)
+
+# Set the players for the match
+match.player1 = player1
+match.player2 = player2
+
+# Set the match for the players
+player1.match = match
+player2.match = match
+
+# Call simulate match function
+random.seed(42) # setting this random seed will ensure repeated runs will always produce same results for testing. Can be changed or removed.
+simulate_match(player1, player2, best_of=3, court_surface='hard')
+
+# Print plot
+player1.plot_court_position(court_position=(-.1, 0.2))
+```
+## Output
+```
+Roger Federer is serving first in the match
+Starting Game 1 simulation:
+	Current game score: Roger Federer 0 - 0 Rafael Nadal
+		Roger Federer faults!
+		Roger Federer's second serve
+		Rafael Nadal wins the point
+
+	Current game score: Roger Federer 0 - 15 Rafael Nadal
+		Roger Federer's first serve
+		Roger Federer wins the point
+
+	Current game score: Roger Federer 15 - 15 Rafael Nadal
+		Roger Federer's first serve
+		Roger Federer wins the point
+
+	...
+
+	Current game score: Roger Federer 15 - 40 Rafael Nadal
+			Roger Federer's first serve
+			Rafael Nadal wins the point
+
+
+	Player Rafael Nadal wins game 15!
+	Player Rafael Nadal wins set 2 (0-2)
+	Player Rafael Nadal wins the match!
+```
+
+![2](plot_court_position.png)
+
 # Next Steps
 
 1. I created a function in the `helper_functions.py` file to read and save data to the data folder to keep the main folder a bit more tidy. This should look to be implemented across even already completed rewritten scripts. I've gone ahead and moved the data files into these folders. Code will need to be updated before it will work. 
@@ -39,7 +100,7 @@ The purpose of Stochastic Gradient Descent (SGD) is to iteratively find a minimu
 3. Thoughs on the ELO calculation.
 	- I'm getting very wild swings in ELO which is leading me to believe that the ELO function needs to be refined. It is good that we see movements in this score, but my gut tells me that after a loss a player's ELO will tank which will lead them to being underrated in their next match.
 
-	![1](hugo_armando_elo.png)
+	![2](hugo_armando_elo.png)
 
 	   - It is probably worth seeing if a recursive function can be implemented here to adjust the ELO algorithim with the success outcome being accuracy in predicting future matches. I could imagine this type of recursive loop to be ver computationaly intense. A random grid search of values may be a reasonable solution which will also help in preventing over fitting. 
 
