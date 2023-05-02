@@ -16,6 +16,7 @@ class Match:
         game_win_counts (dict): A dictionary of game win counts for each player in the current set.
         server_on_points (list): A list of players who serve on each point in the current game.
         advantage (Player): The player with advantage in the current game, if any.
+        serve_position (Tuple[float, float]): The current position of the player who is serving.
     """
 
     # Define score map
@@ -56,6 +57,7 @@ class Match:
         self.match_over = False
         self.set_over = False
         self.game_over = False
+        self.serve_position = (-0.1, 0.2)
 
     def first_serve(self):
         """Randomly chooses a player to serve first and sets the initial serving player for the match.
@@ -247,13 +249,18 @@ class Match:
             else:
                 print(f"\tCurrent game score: {self.player1.name} {self.score_map[self.player1.score]} - {self.score_map[self.player2.score]} {self.player2.name}")
 
+            if self.current_point % 2 == 0:
+                court_position = (-0.1, 0.2)  # Right-hand side
+            else:
+                court_position = (-0.1, 0.8)  # Left-hand side
+            
             probability_of_winning_point = None
             if serving_player.fault():
                 print(f"\t\t{serving_player.name}'s first serve")
-                probability_of_winning_point = serving_player.calculate_point_probability(opponent=receiving_player, court_position=(0, 5), weather_conditions="sunny", first_serve=True)
+                probability_of_winning_point = serving_player.calculate_point_probability(opponent=receiving_player, court_position=court_position, weather_conditions="sunny", first_serve=True)
             elif serving_player.fault():
                 print(f"\t\t{serving_player.name}'s second serve")
-                probability_of_winning_point = serving_player.calculate_point_probability(opponent=receiving_player, court_position=(0, 5), weather_conditions="sunny", first_serve=False)
+                probability_of_winning_point = serving_player.calculate_point_probability(opponent=receiving_player, court_position=court_position, weather_conditions="sunny", first_serve=False)
             else:
                 print(f"\t\t{receiving_player.name} wins the point\n")
                 if self.tiebreak:
@@ -353,15 +360,11 @@ class Player:
 
         # Adjust probability based on court position
         x, y = court_position
-        if x > 0.5:
-            base_prob += 0.05
-        else:
-            base_prob -= 0.05
         if y > 0.5:
-            base_prob += 0.05
+            base_prob += 0.05 # this code will need to be updated to evaluate the player's serve performance from left and right hand side. also comparing to receiver's skill
         else:
-            base_prob -= 0.05
-
+            base_prob -= 0.05 # this code will need to be updated to evaluate the player's serve performance from left and right hand side. also comparing to receiver's skill
+        
         # Adjust probability based on weather conditions
         if weather_conditions == "sunny":
             base_prob += 0.05
