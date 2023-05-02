@@ -58,7 +58,21 @@ Optimized code for better performance:
     - Variable names are more descriptive, making it easier to understand what each variable represents.
     - Functions have been defined for better organization and clarity.
 
-Best practices for naming conventions and style have been followed:
+# Changelog for Version 0.1.1 (Released on 2023-05-01)
 
-- Variable and function names use snake_case.
-- The code follows PEP 8 style guidelines.
+All notable changes to this project will be documented in this file. This project adheres to Semantic Versioning and uses the Keep a Changelog format.
+
+## simulate_tennis_match.py 
+
+### Added
+
+- New module for simulating a tennis match between two players
+- The module allows for customization of the match parameters (e.g. number of sets, court surface, weather conditions) and outputs the final match score and winner.
+
+## GETTINGSTARTED.md
+
+### Added
+- Added document for new users to get started with this repository, assuming no prior python experience
+- Includes instructions for downloading Python directly or downloading via Anaconda
+- Includes instructions for both Mac and Windows
+- Includes instructions on how to access GitHub repo either through Git or a web browser
