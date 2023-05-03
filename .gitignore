@@ -158,3 +158,12 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Data files
+/tennis_betting_ml/data/all_matches.csv
+/tennis_betting_ml/data/final_df.csv
+/tennis_betting_ml/data/final_kaggle_dataset.csv
+/tennis_betting_ml/data/final_kaggle_dataset.pkl
+
+# macOS files to ignore
+.DS_Store
