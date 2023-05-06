@@ -48,227 +48,271 @@ def sort_dataframe(df):
     Returns:
         pandas.DataFrame: The sorted dataframe.
     """
-    return df.sort_values(by=['player_id', 'year', 'start_date', 'round_num_1'], ascending=True).reset_index(drop=True)
+    # Check if 'player_id' column is present in the DataFrame
+    if 'player_id' in df.columns:
+        sort_columns = ['player_id', 'year', 'start_date', 'round_num']
+    else:
+        sort_columns = ['player_id_1', 'year', 'start_date', 'round_num']
+    
+    # Sort the DataFrame based on the appropriate columns
+    df = df.sort_values(by=sort_columns, ascending=True).reset_index(drop=True)
+    
+    return df
 
+# Define a function to create unique match identifiers
+def create_unique_match_identifiers(df):
+    """
+    Create unique match identifiers for both player 1 and player 2 in the input DataFrame.
+    
+    This function generates unique match identifiers for both player 1 and player 2 by
+    concatenating the player ID, opponent ID, tournament, start date, and round number
+    for each match. The resulting match identifiers are added as new columns to the
+    input DataFrame.
+    
+    Args:
+        df (pd.DataFrame): The input DataFrame containing match data with columns
+            'player_id', 'opponent_id', 'tournament', 'start_date', and 'round_num'.
+            
+    Returns:
+        pd.DataFrame: The input DataFrame with two new columns added: 'match_id_player_1'
+            and 'match_id_player_2', containing the unique match identifiers for
+            player 1 and player 2, respectively.
+    """
+    df['match_id_player_1'] = df['player_id'] + '_' + df['opponent_id'] + '_' + df['tournament'] + '_' + df['start_date'] + '_' + df['round_num'].astype(str)
+    df['match_id_player_2'] = df['opponent_id'] + '_' + df['player_id'] + '_' + df['tournament'] + '_' + df['start_date'] + '_' + df['round_num'].astype(str)
+    return df
 
-try:
-    from helper_functions import print_elapsed_time
+# Define a function to filter and clean data before executing main script
+def filter_and_clean_data(df):
+    """
+    Filters and cleans the input DataFrame containing tennis match data.
 
-    if debug:
-        print("Running in debug mode")
+    This function performs the following operations:
+    1. Filters the matches from the year 2000 and onwards.
+    2. Replaces the 'Carpet' court surface with 'Grass'.
+    3. Converts the 'player_victory' column values from 't'/'f' to 1/0.
+    4. Removes the rows corresponding to doubles matches.
+    5. Removes the rows with missing 'num_sets' values.
 
-    # Read in data
-    print_elapsed_time('Reading in data')
-    all_matches = read_data("all_matches.csv")
-    tournaments = read_data("all_tournaments.csv")
+    Args:
+        df (pd.DataFrame): A DataFrame containing tennis match data.
 
-    all_matches = all_matches[:500]
+    Returns:
+        pd.DataFrame: A filtered and cleaned DataFrame with updated tennis match data.
+    """
+    df = df[df['year'] >= 2000]
+    df['court_surface'] = df['court_surface'].replace('Carpet', 'Grass')
+    df['player_victory'] = df['player_victory'].map({'t': 1, 'f': 0})
+    df = df[df['doubles'] != 't']
+    df = df[df['num_sets'].notna()]
+    return df
 
+# Create function to caluclate running totals
+def calculate_running_totals(df, player_id_col, victory_col, surface=None):
+    """Calculate running totals of matches played and victories for each player.
 
-    # Create unique match identifiers
-    all_matches['match_id_player_1'] = all_matches['player_id'] + '_' + all_matches['opponent_id'] + '_' + all_matches['tournament'] + '_' + all_matches['start_date'] + '_' + all_matches['round_num'].astype(str)
-    all_matches['match_id_player_2'] = all_matches['opponent_id'] + '_' + all_matches['player_id'] + '_' + all_matches['tournament'] + '_' + all_matches['start_date'] + '_' + all_matches['round_num'].astype(str)
+    Args:
+        df (pandas.DataFrame): The input DataFrame containing match data.
+        player_id_col (str): The name of the column containing player IDs.
+        victory_col (str): The name of the column indicating player victories.
+        surface (str, optional): The surface type to filter matches on. Defaults to None.
 
-    # Remove tournaments & matches prior to the year 2000
-    print_elapsed_time('Removing old tournaments')
-    tournaments = tournaments[tournaments['year'] >= 2000]
-    all_matches = all_matches[all_matches['year'] >= 2000]
+    Returns:
+        pandas.DataFrame: The input DataFrame with new columns added for running totals.
+    """
+    if surface:
+        surface_suffix = f"_{surface.lower()}"
+    else:
+        surface_suffix = ""
 
-    # Create a unique identifier column in the tournaments dataframe
-    print_elapsed_time('Creating unique tournament_ids')
-    tournaments['tournament_id'] = tournaments['tournament'] + '_' + tournaments['year'].astype(str)
-    tournaments['tournament_id'] = tournaments['tournament_id'].str.replace('/', '_')
-    all_matches['tournament_id'] = all_matches['tournament'] + '_' + all_matches['year'].astype(str)
-    all_matches['tournament_id'] = all_matches['tournament_id'].str.replace('/', '_')
+    df[f"running_total_matches_played{surface_suffix}"] = df.groupby(player_id_col, sort=False).cumcount() + 1
+    df[f"running_total_victories{surface_suffix}"] = df.groupby(player_id_col, sort=False)[victory_col].cumsum()
 
-    # Remove doubles matches from the data dataframe
-    print_elapsed_time('Removing Doubles Matches')
-    all_matches = all_matches[all_matches['doubles'] != 't']
+    return df
 
-    # Remove any match where num_sets is null / N/A / nan etc.
-    print_elapsed_time('Removing erroneous matches')
-    ###### this code is wrong because of row_num has not yet had _1 appended.
-    all_matches = all_matches[all_matches['num_sets'].notna()]
+def forward_fill_court_specific_data(df, court_surfaces):
+    """Forward-fill missing court-specific data for each player.
 
-    # Sort all_matches by start_date ascending
-    print_elapsed_time('Resetting index')
-    all_matches = sort_dataframe(all_matches)
+    This function fills missing values in the 'running_total_matches_played_{surface}' and
+    'running_total_victories_{surface}' columns for each player using the forward-fill method.
 
-    # Replace 'Carpet' with 'Grass'
-    print_elapsed_time('Replacing Carpet with Grass')
-    all_matches['court_surface'] = all_matches['court_surface'].replace('Carpet', 'Grass')
+    Args:
+        df (pandas.DataFrame): The input DataFrame containing match data.
+        court_surfaces (list): A list of court surface types to fill missing data for.
 
-    # Convert player_victory to 1's and 0's
-    print_elapsed_time('Remapping player_victory win values')
-    all_matches['player_victory'] = all_matches['player_victory'].map({'t': 1, 'f': 0})
-
-    # Add running_total_matches_played column for unfiltered dataframe
-    print_elapsed_time('Calculate running total matches')
-    all_matches['running_total_matches_played'] = all_matches.groupby('player_id', sort=False).cumcount() + 1
-
-    # Add running_total_victories column for unfiltered dataframe
-    print_elapsed_time('Calculate running total victories')
-    all_matches['running_total_victories'] = all_matches.groupby('player_id', sort=False)['player_victory'].cumsum()
-
-    # Create player_match_id
-    print_elapsed_time('Creating player_match_id')
-    all_matches['player_match_id'] = all_matches['player_id'].astype(str) + '_' + all_matches['running_total_matches_played'].astype(str)
-
-    # Create a list of unique court_surfaces and drop NaN values
-    court_surfaces = all_matches['court_surface'].dropna().unique()
-
-    # Loop through all court_surfaces
+    Returns:
+        pandas.DataFrame: The input DataFrame with missing data forward-filled for each court surface.
+    """
     for surface in court_surfaces:
-        # Filter the dataframe by court_surface
-        df = all_matches[all_matches['court_surface'] == surface]
+        df[f'running_total_matches_played_{surface.lower()}'] = df.groupby('player_id')[f'running_total_matches_played_{surface.lower()}'].fillna(method='ffill')
+        df[f'running_total_victories_{surface.lower()}'] = df.groupby('player_id')[f'running_total_victories_{surface.lower()}'].fillna(method='ffill')
+    return df
 
-        # Add running_total_matches_played column with surface suffix
-        print_elapsed_time(f'Calculate running total {surface} matches played')
-        df[f'running_total_matches_played_{surface.lower()}'] = df.groupby('player_id', sort=False).cumcount() + 1
+def print_debug_info(df, debug_player, court_surfaces, debug_rows):
+    """
+    Print a slice of the DataFrame for a specific player with running totals for easier debugging.
 
-        # Add running_total_victories column with surface suffix
-        print_elapsed_time(f'Calculate running total {surface} victories')
-        df[f'running_total_victories_{surface.lower()}'] = df.groupby('player_id', sort=False)['player_victory'].cumsum()
+    Args:
+        df (pd.DataFrame): The DataFrame containing the tennis match data.
+        debug_player (str): The player ID for which to print the debugging information.
+        court_surfaces (list): A list of court surface types.
+        debug_rows (int): The number of rows to print.
 
-        # Save the data to a new dataframe
-        print_elapsed_time(f'Write to {surface}_matches dataframe')
-        new_df_name = f"{surface}_matches"
-        globals()[new_df_name] = df
+    Returns:
+        None
+    """
+    pd.set_option('display.max_columns', None)
 
-    # Sort the all_matches dataframe by 'player_id' and 'running_total_matches_played', and reset the index
-    print_elapsed_time('Reset index')
-    all_matches = sort_dataframe(all_matches)
+    columns_to_print = ['player_id', 'opponent_id', 'match_id_player_1', 'match_id_player_2', 'year', 'start_date', 'round_num']
 
-    # Fill NaN values by pushing down each value until the next non NaN value for specific columns
-    print_elapsed_time('Forward fill all NaN values for court specific data')
-    for surface in court_surfaces:
-        all_matches[f'running_total_matches_played_{surface.lower()}'] = all_matches[f'running_total_matches_played_{surface.lower()}'].fillna(method='ffill')
-        all_matches[f'running_total_victories_{surface.lower()}'] = all_matches[f'running_total_victories_{surface.lower()}'].fillna(method='ffill')
+    if 'running_total_matches_played_1' in df.columns:
+        columns_to_print.extend(['running_total_matches_played_1', 'running_total_victories_1'])
+        surface_columns = [f'{prefix}_{court.lower()}_1' for court in court_surfaces for prefix in ['running_total_matches_played', 'running_total_victories']]
+        columns_to_print.extend(surface_columns)
+    else:
+        columns_to_print.extend(['running_total_matches_played', 'running_total_victories'])
+        surface_columns = [f'{prefix}_{court.lower()}' for court in court_surfaces for prefix in ['running_total_matches_played', 'running_total_victories']]
+        columns_to_print.extend(surface_columns)
 
-    # Print DF for visual inspection if in debug mode
-    if debug:
-        print_elapsed_time('Examining running totals to ensure accuracy')
-        pd.set_option('display.max_columns', None)
-        print(all_matches[(all_matches['player_id'] == 'hugo-armando')][['player_id', 'opponent_id', 'match_id_player_1', 'match_id_player_2', 'year', 'start_date', 'round_num', 'running_total_matches_played', 'running_total_victories']].head(20))
+    print(df[(df['player_id'] == debug_player)][columns_to_print].head(debug_rows))
 
+def merge_datasets(all_matches, surface_dfs, court_surfaces):
+    """
+    Split the all_matches DataFrame into player_1_matches and player_2_matches, and then
+    merge them along with surface-specific dataframes.
+
+    Args:
+        all_matches (pd.DataFrame): The DataFrame containing all match data.
+        surface_dfs (dictionary): A dictionary containing Pandas DataFrames for court_surface specific matches
+        court_surfaces (list): A list of court surface types.
+
+    Returns:
+        dict: A dictionary containing the final_dataset and surface-specific DataFrames.
+    """
     # Split the dataset into two DataFrames, one for each player
     player_1_matches = all_matches.add_suffix('_1')
     player_2_matches = all_matches.add_suffix('_2')
 
-    # Visually inspect DataFrames before merging if in debug mode
-    if debug:
-        print_elapsed_time('Printing player 1 matches')
-        print(player_1_matches[(player_1_matches['player_id_1'] == 'hugo-armando')][['player_id_1', 'opponent_id_1', 'match_id_player_1_1', 'match_id_player_2_1', 'year_1', 'start_date_1', 'round_num_1', 'running_total_matches_played_1', 'running_total_victories_1']].head(20))
-        print_elapsed_time('Printing player 2 matches')
-        print(player_2_matches[(player_2_matches['player_id_2'] == 'hugo-armando')][['player_id_2', 'opponent_id_2', 'match_id_player_1_2', 'match_id_player_2_2', 'year_2', 'start_date_2', 'round_num_2', 'running_total_matches_played_2', 'running_total_victories_2']].head(20))
-
-    # Merge the renamed DataFrames
-    print_elapsed_time('Perform self join')
     final_dataset = player_1_matches.merge(player_2_matches, left_on='match_id_player_1_1', right_on='match_id_player_2_2')
 
-    # Calculate ELOs for all_matches
-    print_elapsed_time('Calculate ELOs')
-    final_dataset = apply_elo(final_dataset)
-
-    # Merge surface dataframes to player_1_matches and player_2_matches separately
+    surface_dataframes = {}
     for surface in court_surfaces:
-        print_elapsed_time(f'Perform self join for {surface} data')
-        surface_df = globals()[f"{surface}_matches"]
-        cols_to_merge = ['player_id', 'match_id_player_1', 'match_id_player_1', f'running_total_matches_played_{surface.lower()}', f'running_total_victories_{surface.lower()}']
-        surface_df = surface_df[cols_to_merge]
+        surface_df = surface_dfs[surface.lower()]
 
-        surface_df_1 = surface_df.copy()
-        surface_df_1.columns = [f'{col}_1' if col != 'player_id' else col for col in cols_to_merge]
-
-        surface_df_2 = surface_df.copy()
-        surface_df_2.columns = [f'{col}_2' if col != 'player_id' else col for col in cols_to_merge]
+        surface_df_1 = surface_df.add_suffix('_1')
+        surface_df_2 = surface_df.add_suffix('_2')
 
         surface_df = surface_df_1.merge(surface_df_2, left_on='match_id_player_1_1', right_on='match_id_player_2_2')
 
-        # Save the data to a new dataframe
-        new_df_name = f"{surface}_matches"
-        globals()[new_df_name] = surface_df
+        surface_dataframes[f"{surface}_matches"] = surface_df
 
-    # Loop through all court_surfaces and apply ELO calculation for each surface
-    for surface in court_surfaces:
-        print_elapsed_time(f'Calculate ELOs for {surface}')
-        # Filter the dataframe by court_surface
-        surface_df = final_dataset[final_dataset['court_surface'] == surface].copy()
+    return {"final_dataset": final_dataset, **surface_dataframes}
 
-        # Apply Elo calculation to the surface-specific dataframe
-        surface_df = apply_elo(surface_df)  # Update the apply_elo function to accommodate new column names
+def main(debug=False, debug_player='hugo-armando', debug_rows=5):
+    try:
+        from helper_functions import print_elapsed_time
 
-        # Rename elo_1 and elo_2 columns
-        surface_df.rename(columns={'elo_1': f'{surface}_elo_1', 'elo_2': f'{surface}_elo_2'}, inplace=True)
+        # Print to the user if the script is being run in debug mode
+        if debug:
+            print("Running in debug mode")
+        
+        # Call imported read_data function to retrieve all_matches.csv
+        print_elapsed_time('Reading in data')
+        all_matches = read_data("all_matches.csv")
 
-        # Save the data to a new dataframe
-        print_elapsed_time(f'Storing {surface} data with ELO')
-        new_df_name = f"{surface}_matches"
-        globals()[new_df_name] = surface_df
+        # Call filter_and_clean_data function to clean the all_matches dataframe
+        print_elapsed_time('Filtering and cleaning data')
+        all_matches = filter_and_clean_data(all_matches)
+        
+        # Call create_unique_match_identifiers to add match ids to all_matches dataframe
+        print_elapsed_time('Adding match identifiers')
+        all_matches = create_unique_match_identifiers(all_matches)
 
-    # Forward-fill the specified columns
-    print_elapsed_time('Merge all surface datasets back to main dataset. Forward will court type metrics')
-    for surface in court_surfaces:
-        for suffix in ['_1', '_2']:
-            final_dataset[f'running_total_matches_played_{surface.lower()}{suffix}'] = final_dataset[f'running_total_matches_played_{surface.lower()}{suffix}'].fillna(method='ffill')
-            final_dataset[f'running_total_victories_{surface.lower()}{suffix}'] = final_dataset[f'running_total_victories_{surface.lower()}{suffix}'].fillna(method='ffill')
-            final_dataset[f'{surface}_elo{suffix}'] = final_dataset[f'{surface}_elo{suffix}'].fillna(method='ffill')
+        # Sort all_matches by start_date ascending
+        print_elapsed_time('Resetting index')
+        all_matches = sort_dataframe(all_matches)
 
-    # Drop the _y columns and rename the _x columns for all dataframes
-    shared_columns = ['player_id', 'opponent_id', 'start_date', 'court_surface', 'currency', 'end_date', 'location', 'num_sets', 'opponent_name', 'player_name', 'prize_money', 'round', 'tournament', 'year', 'duration', 'nation', 'match_id_player_1', 'match_id_player_2', 'tournament_id']
-    for df in [final_dataset] + [globals()[f"{surface}_matches"] for surface in court_surfaces]:
-        print_elapsed_time(f'Rename columns suffixes in {df.name}')
-        for col in df.columns:
-            if col.endswith('_2'):
-                if col[:-2] in shared_columns:
-                    df.drop(columns=[col], inplace=True)
-            elif col.endswith('_1'):
-                if col[:-2] in shared_columns:
-                    df.rename(columns={col: col[:-2]}, inplace=True)
+        # Calculate running total matches played and running total victories for all matches
+        print_elapsed_time('Calculating running total matches and victories for all matches')
+        all_matches = calculate_running_totals(all_matches, "player_id", "player_victory")
 
-    # Reorder columns for final_dataset
-    print_elapsed_time('Reorder columns for final_dataset')
-    final_dataset = reorder_columns(final_dataset)
+        # Create a list of unique court_surfaces and drop NaN values
+        court_surfaces = all_matches['court_surface'].dropna().unique()
 
-    # Reorder columns for surface-specific dataframes
-    for surface in court_surfaces:
-        print_elapsed_time(f'Reorder columns for {surface}_matches')
-        globals()[f"{surface}_matches"] = reorder_columns(globals()[f"{surface}_matches"])
+        # Calcuating running totals for each surface type
+        surface_dfs = {}
+        for surface in court_surfaces:
+            # Filter the dataframe by court_surface
+            df = all_matches[all_matches['court_surface'] == surface]
 
-    # Sort dataframes
-    print_elapsed_time('Sorting dataframes')
-    final_dataset = sort_dataframe(final_dataset)
+            # Add running_total_matches_played column with surface suffix
+            print_elapsed_time(f"Calculate running total {surface} matches played")
+            df = calculate_running_totals(df, "player_id", "player_victory", surface)
 
-    for surface in court_surfaces:
-        surface_df = globals()[f"{surface}_matches"]
-        print_elapsed_time(f'Sorting {surface_df.name}')
-        surface_df = sort_dataframe(surface_df)
-        new_df_name = f"{surface}_matches"
-        globals()[new_df_name] = surface_df
+            # Save the data to a new dataframe
+            print_elapsed_time(f"Add {surface} dataframe to surface_dfs dict")
+            surface_dfs[surface.lower()] = df
 
-    # Print final datset if in debug mode
-    if debug:
-        print_elapsed_time('Visually inspecting final dataset')
-        print(final_dataset[(final_dataset['player_id'] == 'hugo-armando')][['player_id', 'year', 'start_date', 'round_num_1', 'running_total_matches_played_1', 'running_total_victories_1']].head(20))
+            # Join surface specific df back to all_matches
+            print_elapsed_time(f"Join {surface} dataframe to all_matches dataframe")
+            all_matches = all_matches.merge(df[['match_id_player_1', f"running_total_matches_played_{surface.lower()}", f"running_total_victories_{surface.lower()}"]], on="match_id_player_1", how="left")
 
-    #Saving dataframe as CSV
-    print_elapsed_time('Save dataframe as CSV')
-    final_dataset.to_csv('final_kaggle_dataset.csv', index=False)
+        # Forward Fill Court Spoecific Data
+        print_elapsed_time(f"Filling running total data for each court type forward")
+        all_matches = forward_fill_court_specific_data(all_matches, court_surfaces)
 
-    # Assuming court_surfaces is a list containing the surface types
-    for surface in court_surfaces:
-        new_df_name = f"{surface}_matches"
-        dataframe = globals()[new_df_name]
-        save_data_file(dataframe, 'csv', f'{surface}_matches.csv')
+        # Print DF for visual inspection if in debug mode
+        if debug:
+            print_elapsed_time('Printing data after forward fill for validation')
+            print_debug_info(all_matches, debug_player, court_surfaces, debug_rows)
 
+        # Perform self join of all_matches and court specific dataframes to get oppponent info
+        print_elapsed_time(f"Performing self joins")
+        merged_data = merge_datasets(all_matches, surface_dfs, court_surfaces)
 
-    #Saving dataframe as PKL
-    print_elapsed_time('Save dataframe as pickle')
-    final_dataset.to_pickle('final_kaggle_dataset.pkl')
+        # Drop shared columns (e.g. 'start_date', 'court_surface', etc.) that end with _2 and remove the _1 from the remaining values
+        shared_columns = ['player_id', 'opponent_id', 'start_date', 'court_surface', 'currency', 'end_date', 'location', 'num_sets', 'opponent_name', 'player_name', 'prize_money', 'round', 'tournament', 'year', 'duration', 'nation', 'match_id_player_1', 'match_id_player_2', 'tournament_id', 'round_num']
+        for key, value in merged_data.items():
+            print_elapsed_time(f"Cleaning columns in {key.lower()} dataframe")
+            for col in value.columns:
+                if col.endswith('_2'):
+                    if col[:-2] in shared_columns:
+                        value.drop(columns=[col], inplace=True)
+                elif col.endswith('_1'):
+                    if col[:-2] in shared_columns:
+                        value.rename(columns={col: col[:-2]}, inplace=True)
 
-    logger.info("Exiting")
-    sys.exit(0)
+        # Reorder columns, and sort dataframes
+        for key, value in merged_data.items():
+            print_elapsed_time(f'Reorder columns for {key.lower()} matches')
+            value = reorder_columns(value)
+            print_elapsed_time(f'Sort dataframe columns for {key.lower()} matches')
+            value = sort_dataframe(value)
 
-except Exception as e:
-    logger.exception("An error occurred during script execution")
-    sys.exit(1)
+        final_dataset = merged_data['final_dataset']
+
+        # Print DF for visual inspection if in debug mode
+        if debug:
+            print_elapsed_time('Printing final dataset for validation')
+            print_debug_info(final_dataset, debug_player, court_surfaces, debug_rows)
+
+        for key, value in merged_data.items():
+            df_file_name = f"{key.lower()}.csv"
+            print_elapsed_time(f'Saving {df_file_name}')
+            save_data_file(value, 'csv', f'{df_file_name}')
+
+        logger.info("Exiting")
+        sys.exit(0)
+
+    except Exception as e:
+        logger.exception("An error occurred during script execution")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main(debug, debug_rows=20)
+
+    # # Create player_match_id
+    # print_elapsed_time('Creating player_match_id')
+    # all_matches['player_match_id'] = all_matches['player_id'].astype(str) + '_' + all_matches['running_total_matches_played'].astype(str)
+
+    

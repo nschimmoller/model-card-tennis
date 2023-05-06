@@ -161,9 +161,13 @@ cython_debug/
 
 # Data files
 /tennis_betting_ml/data/all_matches.csv
-/tennis_betting_ml/data/final_df.csv
-/tennis_betting_ml/data/final_kaggle_dataset.csv
-/tennis_betting_ml/data/final_kaggle_dataset.pkl
+/tennis_betting_ml/data/final_dataset.csv
+/tennis_betting_ml/data/clay_matches.csv
+/tennis_betting_ml/data/hard_matches.csv
+/tennis_betting_ml/data/grass_matches.csv
+
+# Log files
+*.log
 
 # macOS files to ignore
 .DS_Store

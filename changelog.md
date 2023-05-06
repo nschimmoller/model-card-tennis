@@ -76,3 +76,43 @@ All notable changes to this project will be documented in this file. This projec
 - Includes instructions for downloading Python directly or downloading via Anaconda
 - Includes instructions for both Mac and Windows
 - Includes instructions on how to access GitHub repo either through Git or a web browser
+
+# Changelog for Version 0.1.1 (Released on 2023-05-06)
+
+All notable changes to this project will be documented in this file. This project adheres to Semantic Versioning and uses the Keep a Changelog format.
+
+## Entire Repo
+
+### Changed
+- Files that I have modified are now all lower case as opposed to camel case.
+- Updated `.gitignore` file to ignore large files in `/tennis_betting_ml/data` folder
+
+## kaggle_tennis_data_preprocessing.py
+
+### Added
+- Ability to perform operations on incremental rows
+- Implementation of logging using the `setup_logger` function from `helper_functions.py`
+
+### Changed
+- Renamed `match_identifiers` to `all_matches` to improve code clarity
+- Updated column names in `all_matches` to be more descriptive
+- Refactored `all_matches` code for readability
+- Updated tournaments and `all_matches` filtering criteria to exclude tournaments and matches before 2000
+- Renamed tournaments unique identifier column from `tourney_date_id` to `tournament_id`
+- Renamed matches unique identifier column from `match_id` to `match_id_player_1` and added a corresponding `match_id_player_2` column
+- Removed doubles matches from `all_matches` data
+- Removed incomplete matches from `all_matches` data
+- Sort `all_matches` by `start_date` ascending
+- Added `running_total_matches_played` column to `all_matches` data
+- Converted `player_victory` column in `all_matches` data to 1s and 0s
+- Added `running_total_victories` column to `all_matches` data
+- Split `all_matches` data into two dataframes, `player_1_matches` and `player_2_matches`
+- Merged `player_1_matches` and `player_2_matches` to create `final_dataset`
+- Renamed columns in `final_dataset`
+- Reordered columns in `final_dataset`
+- Sorted `final_dataset` by `player_id`, `year`, `start_date`, and `round_num_1`
+- Saved `final_dataset` as a CSV file and a pickle file
+- Updated `README.md` to reflect current code functionality
+
+### Removed
+- None

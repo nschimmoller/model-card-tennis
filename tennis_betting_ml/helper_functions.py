@@ -76,27 +76,31 @@ def save_data_file(dataframe: pd.DataFrame, file_type: str, filename: str = None
 
     Raises:
         ValueError: If the file type provided is not supported.
+        FileNotFoundError: If the 'data' directory does not exist.
 
     Returns:
         None
     """
-    # Get the current working directory
-    cwd = os.getcwd()
-    # Change to the data directory
-    os.chdir('data')
+    # Define the data directory path
+    data_dir = os.path.join(os.getcwd(), 'data')
+
+    # Create the data directory if it doesn't already exist
+    if not os.path.exists(data_dir):
+        os.mkdir(data_dir)
+
     # Set filename if not provided
     if filename is None:
         filename = dataframe.name + '.' + file_type if dataframe.name is not None else 'datafile.' + file_type
+
     # Save the dataframe as the specified file type
     if file_type == 'csv':
-        dataframe.to_csv(filename, index=False)
+        with open(os.path.join(data_dir, filename), 'w') as file:
+            dataframe.to_csv(file, index=False)
     elif file_type == 'pickle':
-        dataframe.to_pickle(filename)
+        with open(os.path.join(data_dir, filename), 'wb') as file:
+            pickle.dump(dataframe, file)
     else:
         raise ValueError('File type not supported')
-    # Change back to the original directory
-    os.chdir(cwd)
-
 
 def read_data(file_name: str) -> pd.DataFrame:
     """
@@ -110,15 +114,18 @@ def read_data(file_name: str) -> pd.DataFrame:
 
     Raises:
         ValueError: If the file type is not supported.
+        FileNotFoundError: If the 'data' directory does not exist.
     """
-    cwd = os.getcwd()
-    os.chdir('data')
-    extension = os.path.splitext(file_name)[1]
-    if extension == '.csv':
-        df = pd.read_csv(file_name, parse_dates=True)
-    elif extension == '.pkl':
-        df = pd.read_pickle(file_name)
-    else:
-        raise ValueError(f'Invalid file type: {extension}')
-    os.chdir(cwd)
+    data_folder = 'data'
+    if not os.path.exists(data_folder):
+        raise FileNotFoundError(f"{data_folder} directory not found")
+    
+    with open(os.path.join(data_folder, file_name)) as f:
+        extension = os.path.splitext(file_name)[1]
+        if extension == '.csv':
+            df = pd.read_csv(f, parse_dates=True)
+        elif extension == '.pkl':
+            df = pd.read_pickle(f)
+        else:
+            raise ValueError(f'Invalid file type: {extension}')
     return df

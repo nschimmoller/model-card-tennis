@@ -80,28 +80,40 @@ Starting Game 1 simulation:
 
 # Next Steps
 
-1. I created a function in the `helper_functions.py` file to read and save data to the data folder to keep the main folder a bit more tidy. This should look to be implemented across even already completed rewritten scripts. I've gone ahead and moved the data files into these folders. Code will need to be updated before it will work. 
-
-2. Thoughts for `kaggle_tennis_data_preprocessing.py`
+1. Thoughts for `kaggle_tennis_data_preprocessing.py`
 	
-	- Court surface should have `carpet` updated to grass
-	- This code should still be updated to calculate things such as `running_total_matches` and `running_total_victories` for each unique court surface
-	- This code due to it's long nature has moderate run times, a few minutes. While this is acceptable for the initialization of the data it could be more efficient by performing certain functions only on the incremental rows it gets in the future. 
-	   - Had a hard enough time getting the running_total_matches to work properly that I'm not sure I want to go back to this portion of the code for a while, but this would be the most difficult part to get working with the incremental update.
+	Note: Commit on 2023-05-26 made significant updates to this file which should improve overall performance. 
+
+	Details: More details in `changelog.md` file but further work is needed.This code due to it's long nature has moderate run times, a few minutes. While this is acceptable for the initialization of the data it could be more efficient by performing certain functions only on the incremental rows it gets in the future. 
 
 2. Thoughts for new step before dropping duplicate matches. 
+
+	Note: Commit on 2023-05-26 made significant progress towards this end goal. 
 	
-	- I'm hitting long run times when trying to calculate players ELOs due to having to search for their data across both `player_id` and `opponent_id` in the `final_df.csv` file. A couple of thoughts:
-	- Before dropping duplicate matches it is probably better to calculate the ELO then as every player will have every match they've played where their player id is in the `player_id` column as opposed to either the `player_id` or `opponent_id` column. 
-	- ELO calculation needs to be added for each `court_surface` once `kaggle_tennis_data_preprocessing.py` is updated
-	- Additionally, you can then easily use a shift function to retrieve players' stats coming into the match. It is probably worth grabbin this data for `last_3` and `last_7` matches in total and on each surface to evaluate recent form. 
-	   - Eventually when doing Principal Component Analysis (PCA) it is likely that `last_3` and `last_7` will interfere with one another or overfit the model to recent performance but worth grabbing now to evaluate later
+	Details: 
+		- Getting Prior Data
+			- Currently experiencing long run times trying to calculate players ELOs as it has to search for data across both `player_id` and `opponent_id` in the `final_dataset.csv` file. By calculating ELO prior to dropping dupplicate matches we won't have to search for data across both `player_id and `
+			- Use `shift` function within Pandas to get player's stats coming into a match as opposed to after the match. Rename columns as `running_total_matches_grass_1_prior` 
+			- It is probably worth grabbin this data for `_last_3` and `_last_7` to evaluate recent form.
+		- ELO Calculation
+			- I'm getting very wild swings in ELO which is leading me to believe that the ELO function needs to be refined.
+			- I've drafted up a rough `elo_pipeline.py` file that will serve to optimize the constants within the ELO calculation to best predict match winners.
 
-3. Thoughs on the ELO calculation.
-	- I'm getting very wild swings in ELO which is leading me to believe that the ELO function needs to be refined. It is good that we see movements in this score, but my gut tells me that after a loss a player's ELO will tank which will lead them to being underrated in their next match.
+			![2](hugo_armando_elo.png)
 
-	![2](hugo_armando_elo.png)
+3. Tennis match simulation
 
-	   - It is probably worth seeing if a recursive function can be implemented here to adjust the ELO algorithim with the success outcome being accuracy in predicting future matches. I could imagine this type of recursive loop to be ver computationaly intense. A random grid search of values may be a reasonable solution which will also help in preventing over fitting. 
+	Note: Commit 65a8396 on May 1st introduced `simulate_tennis_match.py`
 
-4. Continue to explore the rest of the repository thoroughly to understand how the different files work together. 
+	Details: This is the first step in simulating entire matches. Further improvements can be made overtime to improve it's accuracy.
+
+    - Update function to simulate X number of matches. More samples of same match will give us probalistic understanding regarding outcomes of a match.
+    - Change the execution to only print outcome of each point when in debug mode to reduce the output noise.
+    - Update player class object to allow for specific player attributes beyond just "player skill". So first serve rate, serve speed, etc.
+    - Update function to store simulated match results for statical analysis later.
+    - Update function to control for weather and indoors vs outdoors.
+
+4. Additional thoughts:
+
+	- As I'm nearing actually training the model we'll have to hot_encode dimensions such as country (e.g. US, UK, CA. etc.) into values (e.g. 0, 1, 2, etc.). While this is easy to do, we should also consider ensuring that a player's nationality and the country of the match are encoded the same. There may be a "home court advantage" that we can train the model on in via this approach.
+
