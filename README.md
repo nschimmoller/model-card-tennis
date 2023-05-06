@@ -76,7 +76,7 @@ Starting Game 1 simulation:
 	Player Rafael Nadal wins the match!
 ```
 
-![2](plot_court_position.png)
+![1](plot_court_position.png)
 
 # Next Steps
 
@@ -99,7 +99,7 @@ Starting Game 1 simulation:
 			- I'm getting very wild swings in ELO which is leading me to believe that the ELO function needs to be refined.
 			- I've drafted up a rough `elo_pipeline.py` file that will serve to optimize the constants within the ELO calculation to best predict match winners.
 
-			![2](hugo_armando_elo.png)
+![2](hugo_armando_elo.png)
 
 3. Tennis match simulation
 
